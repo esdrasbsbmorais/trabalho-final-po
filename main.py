@@ -3,15 +3,21 @@
 """
 Sistema de Otimizacao Automatica - Deteccao de Tipos
 Autor: Sistema de Otimizacao Inteligente
+VERSAO TURBINADA: Cache + Paralelismo + Multi-Start
 """
 
 import subprocess
 import sys
-from typing import List, Union, Tuple
+import time
+from typing import List, Union, Tuple, Dict
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import multiprocessing
+import hashlib
+import json
 
 
 class PatternSearch:
-    """Implementacao do algoritmo Pattern Search com deteccao automatica de tipos"""
+    """Implementacao do algoritmo Pattern Search com deteccao automatica de tipos - TURBINADO COM CACHE!"""
 
     def __init__(self, comando_modelo: str, modo: str = 'maximizar'):
         """
@@ -27,6 +33,7 @@ class PatternSearch:
         self.melhor_params = None
         self.historico = []
         self.total_execucoes = 0
+        self.cache_hits = 0
 
     def detectar_padrao(self, padrao: str) -> Tuple[List, List[str]]:
         """
@@ -75,7 +82,13 @@ class PatternSearch:
         return valores, tipos
 
     def executar_modelo(self, params: List) -> float:
-        """Executa o modelo com os parametros dados"""
+        """Executa o modelo com os parametros dados (COM CACHE TURBINADO!)"""
+        # VERIFICA CACHE PRIMEIRO - ECONOMIA MASSIVA!
+        cached_value = CacheGlobal.get(self.comando_modelo, params)
+        if cached_value is not None:
+            self.cache_hits += 1
+            return cached_value
+
         try:
             # Converte parametros para string
             params_str = [str(p) for p in params]
@@ -100,6 +113,9 @@ class PatternSearch:
                 valor = float(saida)
 
             self.total_execucoes += 1
+
+            # SALVA NO CACHE!
+            CacheGlobal.set(self.comando_modelo, params, valor)
 
             # Atualiza melhor resultado
             melhorou = False
@@ -243,6 +259,9 @@ class PatternSearch:
         print(f"Limites: [{limite_min}, {limite_max}]")
         print("="*70 + "\n")
 
+        # INICIA TIMER
+        tempo_inicio = time.time()
+
         # Inicializa
         params_atual = params_iniciais.copy()
         step_size = step_inicial
@@ -326,10 +345,14 @@ class PatternSearch:
                     break
 
         # Resultado final
+        tempo_total = time.time() - tempo_inicio
         print("\n" + "="*70)
         print("OTIMIZACAO CONCLUIDA")
         print("="*70)
+        print(f"Tempo de execucao: {tempo_total:.2f} segundos ({tempo_total/60:.2f} minutos)")
         print(f"Total de execucoes: {self.total_execucoes}")
+        print(f"Cache hits: {self.cache_hits} (economizou {self.cache_hits} execucoes!)")
+        print(f"Economia de tempo: {100 * self.cache_hits / max(1, self.total_execucoes + self.cache_hits):.1f}%")
         print(f"Iteracoes realizadas: {iteracao}")
         tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
         print(f"Valor {tipo_otimo} encontrado: {self.melhor_valor:.6f}")
@@ -356,7 +379,7 @@ class PatternSearch:
 
 
 class GeneticAlgorithm:
-    """Implementacao do Algoritmo Genetico"""
+    """Implementacao do Algoritmo Genetico - TURBINADO COM CACHE!"""
 
     def __init__(self, comando_modelo: str, modo: str = 'maximizar'):
         """
@@ -372,6 +395,7 @@ class GeneticAlgorithm:
         self.melhor_params = None
         self.historico = []
         self.total_execucoes = 0
+        self.cache_hits = 0
 
     def detectar_padrao(self, padrao: str) -> Tuple[List, List[str]]:
         """Detecta automaticamente o padrao e tipos das variaveis (mesmo do PatternSearch)"""
@@ -409,7 +433,13 @@ class GeneticAlgorithm:
         return valores, tipos
 
     def executar_modelo(self, params: List) -> float:
-        """Executa o modelo com os parametros dados"""
+        """Executa o modelo com os parametros dados (COM CACHE TURBINADO!)"""
+        # VERIFICA CACHE PRIMEIRO - ECONOMIA MASSIVA!
+        cached_value = CacheGlobal.get(self.comando_modelo, params)
+        if cached_value is not None:
+            self.cache_hits += 1
+            return cached_value
+
         try:
             params_str = [str(p) for p in params]
             resultado = subprocess.run(
@@ -426,6 +456,9 @@ class GeneticAlgorithm:
                 valor = float(saida)
 
             self.total_execucoes += 1
+
+            # SALVA NO CACHE!
+            CacheGlobal.set(self.comando_modelo, params, valor)
 
             # Atualiza melhor resultado
             melhorou = False
@@ -457,9 +490,12 @@ class GeneticAlgorithm:
 
     def gerar_individuo(self, tipos: List[str], limite_min: float, limite_max: float,
                         valores_referencia: List = None) -> List:
-        """Gera um individuo aleatorio"""
+        """Gera um individuo aleatorio - AGORA EXPLORA STRINGS!"""
         import random
         individuo = []
+
+        # Opcoes de strings conhecidas
+        opcoes_str = ['baixo', 'medio', 'alto']
 
         for i, tipo in enumerate(tipos):
             if tipo == 'int':
@@ -467,12 +503,8 @@ class GeneticAlgorithm:
             elif tipo == 'float':
                 individuo.append(round(random.uniform(limite_min, limite_max), 6))
             elif tipo == 'str':
-                # Para strings, usa o valor de referencia (do padrao inicial)
-                # Isso evita gerar strings que o modelo nao reconhece
-                if valores_referencia and i < len(valores_referencia):
-                    individuo.append(valores_referencia[i])
-                else:
-                    individuo.append('medio')  # Valor padrao seguro
+                # AGORA EXPLORA STRINGS ALEATORIAMENTE!
+                individuo.append(random.choice(opcoes_str))
 
         return individuo
 
@@ -488,31 +520,32 @@ class GeneticAlgorithm:
 
     def mutacao(self, individuo: List, tipos: List[str], taxa_mutacao: float,
                 limite_min: float, limite_max: float) -> List:
-        """Realiza mutacao em um individuo"""
+        """Realiza mutacao em um individuo - AGORA MUTA STRINGS TAMBEM!"""
         import random
         individuo_mutado = individuo.copy()
+
+        # Opcoes de strings conhecidas
+        opcoes_str = ['baixo', 'medio', 'alto']
 
         for i in range(len(individuo_mutado)):
             if random.random() < taxa_mutacao:
                 tipo = tipos[i]
 
                 if tipo == 'int':
-                    # Mutacao: adiciona um valor aleatorio pequeno
-                    delta = random.randint(-10, 10)
+                    # Mutacao: adiciona um valor aleatorio MAIOR para explorar melhor
+                    delta = random.randint(-20, 20)
                     novo_valor = individuo_mutado[i] + delta
                     individuo_mutado[i] = max(int(limite_min), min(int(limite_max), novo_valor))
 
                 elif tipo == 'float':
-                    # Mutacao: adiciona um valor aleatorio pequeno
-                    delta = random.uniform(-5.0, 5.0)
+                    # Mutacao: adiciona um valor aleatorio MAIOR
+                    delta = random.uniform(-10.0, 10.0)
                     novo_valor = individuo_mutado[i] + delta
                     individuo_mutado[i] = round(max(limite_min, min(limite_max, novo_valor)), 6)
 
                 elif tipo == 'str':
-                    # Para strings, NAO faz mutacao
-                    # Cada modelo aceita valores diferentes, entao mantemos o valor original
-                    # A exploracao de strings e feita apenas pelo crossover
-                    pass
+                    # AGORA MUTA STRINGS! Escolhe aleatoriamente entre as opcoes
+                    individuo_mutado[i] = random.choice(opcoes_str)
 
         return individuo_mutado
 
@@ -529,10 +562,10 @@ class GeneticAlgorithm:
         return populacao[melhor_idx]
 
     def otimizar(self, params_iniciais: List, tipos: List[str],
-                 tamanho_populacao: int = 50,
-                 num_geracoes: int = 100,
-                 taxa_crossover: float = 0.8,
-                 taxa_mutacao: float = 0.1,
+                 tamanho_populacao: int = 100,
+                 num_geracoes: int = 150,
+                 taxa_crossover: float = 0.85,
+                 taxa_mutacao: float = 0.2,
                  limite_min: float = 1,
                  limite_max: float = 100):
         """
@@ -571,6 +604,9 @@ class GeneticAlgorithm:
             print("        Para explorar strings, use Pattern Search (opcao 1).")
 
         print("="*70 + "\n")
+
+        # INICIA TIMER
+        tempo_inicio = time.time()
 
         # Inicializa populacao
         print("Gerando populacao inicial...")
@@ -624,10 +660,14 @@ class GeneticAlgorithm:
             populacao = nova_populacao
 
         # Resultado final
+        tempo_total = time.time() - tempo_inicio
         print("\n" + "="*70)
         print("OTIMIZACAO CONCLUIDA")
         print("="*70)
+        print(f"Tempo de execucao: {tempo_total:.2f} segundos ({tempo_total/60:.2f} minutos)")
         print(f"Total de execucoes: {self.total_execucoes}")
+        print(f"Cache hits: {self.cache_hits} (economizou {self.cache_hits} execucoes!)")
+        print(f"Economia de tempo: {100 * self.cache_hits / max(1, self.total_execucoes + self.cache_hits):.1f}%")
         print(f"Geracoes realizadas: {num_geracoes}")
         tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
         print(f"Valor {tipo_otimo} encontrado: {self.melhor_valor:.6f}")
@@ -655,7 +695,7 @@ class GeneticAlgorithm:
 
 
 class ParticleSwarm:
-    """Implementacao do Particle Swarm Optimization (PSO)"""
+    """Implementacao do Particle Swarm Optimization (PSO) - TURBINADO COM CACHE!"""
 
     def __init__(self, comando_modelo: str, modo: str = 'maximizar'):
         """
@@ -671,6 +711,7 @@ class ParticleSwarm:
         self.melhor_params = None
         self.historico = []
         self.total_execucoes = 0
+        self.cache_hits = 0
 
     def detectar_padrao(self, padrao: str) -> Tuple[List, List[str]]:
         """Detecta automaticamente o padrao e tipos das variaveis"""
@@ -705,7 +746,13 @@ class ParticleSwarm:
         return valores, tipos
 
     def executar_modelo(self, params: List) -> float:
-        """Executa o modelo com os parametros dados"""
+        """Executa o modelo com os parametros dados (COM CACHE TURBINADO!)"""
+        # VERIFICA CACHE PRIMEIRO - ECONOMIA MASSIVA!
+        cached_value = CacheGlobal.get(self.comando_modelo, params)
+        if cached_value is not None:
+            self.cache_hits += 1
+            return cached_value
+
         try:
             params_str = [str(p) for p in params]
             resultado = subprocess.run(
@@ -722,6 +769,9 @@ class ParticleSwarm:
                 valor = float(saida)
 
             self.total_execucoes += 1
+
+            # SALVA NO CACHE!
+            CacheGlobal.set(self.comando_modelo, params, valor)
 
             # Atualiza melhor resultado global
             melhorou = False
@@ -752,9 +802,12 @@ class ParticleSwarm:
 
     def gerar_particula(self, tipos: List[str], limite_min: float, limite_max: float,
                         valores_referencia: List = None) -> List:
-        """Gera uma particula (posicao) aleatoria"""
+        """Gera uma particula (posicao) aleatoria - AGORA EXPLORA STRINGS!"""
         import random
         particula = []
+
+        # Opcoes de strings conhecidas
+        opcoes_str = ['baixo', 'medio', 'alto']
 
         for i, tipo in enumerate(tipos):
             if tipo == 'int':
@@ -762,12 +815,8 @@ class ParticleSwarm:
             elif tipo == 'float':
                 particula.append(round(random.uniform(limite_min, limite_max), 6))
             elif tipo == 'str':
-                # Para strings, usa o valor de referencia (do padrao inicial)
-                # Isso evita gerar strings que o modelo nao reconhece
-                if valores_referencia and i < len(valores_referencia):
-                    particula.append(valores_referencia[i])
-                else:
-                    particula.append('medio')  # Valor padrao seguro
+                # AGORA EXPLORA STRINGS ALEATORIAMENTE!
+                particula.append(random.choice(opcoes_str))
 
         return particula
 
@@ -826,9 +875,12 @@ class ParticleSwarm:
 
     def atualizar_posicao(self, posicao: List, velocidade: List, tipos: List[str],
                          pBest: List, gBest: List, limite_min: float, limite_max: float) -> List:
-        """Atualiza a posicao de uma particula"""
+        """Atualiza a posicao de uma particula - AGORA MUDA STRINGS!"""
         import random
         nova_posicao = []
+
+        # Opcoes de strings conhecidas
+        opcoes_str = ['baixo', 'medio', 'alto']
 
         for i in range(len(posicao)):
             tipo = tipos[i]
@@ -844,18 +896,24 @@ class ParticleSwarm:
                 nova_posicao.append(novo_valor)
 
             elif tipo == 'str':
-                # Para strings, NUNCA muda - mantém o valor atual
-                # Cada modelo aceita valores diferentes, entao nao podemos mudar aleatoriamente
-                nova_posicao.append(posicao[i])
+                # AGORA MUDA STRINGS! Com probabilidade baseada no gBest
+                # Se gBest tem valor diferente, tem chance de mudar para ele
+                if random.random() < 0.3:  # 30% chance de mutar
+                    if random.random() < 0.7:  # 70% chance de ir para gBest
+                        nova_posicao.append(gBest[i])
+                    else:  # 30% chance de explorar
+                        nova_posicao.append(random.choice(opcoes_str))
+                else:
+                    nova_posicao.append(posicao[i])
 
         return nova_posicao
 
     def otimizar(self, params_iniciais: List, tipos: List[str],
-                 num_particulas: int = 30,
-                 num_iteracoes: int = 100,
+                 num_particulas: int = 50,
+                 num_iteracoes: int = 150,
                  w: float = 0.7,
-                 c1: float = 1.5,
-                 c2: float = 1.5,
+                 c1: float = 2.0,
+                 c2: float = 2.0,
                  limite_min: float = 1,
                  limite_max: float = 100):
         """
@@ -896,6 +954,9 @@ class ParticleSwarm:
             print("        Para explorar strings, use Pattern Search (opcao 1).")
 
         print("="*70 + "\n")
+
+        # INICIA TIMER
+        tempo_inicio = time.time()
 
         # Inicializa enxame
         print("Gerando enxame inicial...")
@@ -971,10 +1032,14 @@ class ParticleSwarm:
             print(f"> Melhor global: {gBest_fitness:.6f}")
 
         # Resultado final
+        tempo_total = time.time() - tempo_inicio
         print("\n" + "="*70)
         print("OTIMIZACAO CONCLUIDA")
         print("="*70)
+        print(f"Tempo de execucao: {tempo_total:.2f} segundos ({tempo_total/60:.2f} minutos)")
         print(f"Total de execucoes: {self.total_execucoes}")
+        print(f"Cache hits: {self.cache_hits} (economizou {self.cache_hits} execucoes!)")
+        print(f"Economia de tempo: {100 * self.cache_hits / max(1, self.total_execucoes + self.cache_hits):.1f}%")
         print(f"Iteracoes realizadas: {num_iteracoes}")
         tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
         print(f"Valor {tipo_otimo} encontrado: {self.melhor_valor:.6f}")
@@ -1001,18 +1066,975 @@ class ParticleSwarm:
         print(f"[OK] Relatorio salvo em: {arquivo}")
 
 
+class CacheGlobal:
+    """Sistema de cache global para evitar execucoes duplicadas"""
+    _cache = {}
+
+    @classmethod
+    def get_key(cls, comando: str, params: List) -> str:
+        """Gera chave unica para os parametros"""
+        params_str = json.dumps(params, sort_keys=True)
+        return hashlib.md5(f"{comando}:{params_str}".encode()).hexdigest()
+
+    @classmethod
+    def get(cls, comando: str, params: List):
+        """Busca no cache"""
+        key = cls.get_key(comando, params)
+        return cls._cache.get(key)
+
+    @classmethod
+    def set(cls, comando: str, params: List, valor: float):
+        """Salva no cache"""
+        key = cls.get_key(comando, params)
+        cls._cache[key] = valor
+
+    @classmethod
+    def size(cls) -> int:
+        """Retorna tamanho do cache"""
+        return len(cls._cache)
+
+    @classmethod
+    def clear(cls):
+        """Limpa o cache"""
+        cls._cache.clear()
+
+
+class HybridOptimizer:
+    """
+    OTIMIZADOR HIBRIDO - Combina as melhores estrategias!
+
+    FASE 1: Exploracao Global (PSO rapido)
+    FASE 2: Intensificacao (Nelder-Mead nas melhores solucoes)
+    FASE 3: Polimento Final (Pattern Search refinado)
+    """
+
+    def __init__(self, comando_modelo: str, modo: str = 'maximizar'):
+        self.comando_modelo = comando_modelo
+        self.modo = modo.lower()
+        self.melhor_valor = float('-inf') if self.modo == 'maximizar' else float('inf')
+        self.melhor_params = None
+        self.historico = []
+        self.total_execucoes = 0
+        self.cache_hits = 0
+        self.melhores_solucoes = []  # Top N solucoes encontradas
+
+    def detectar_padrao(self, padrao: str) -> Tuple[List, List[str]]:
+        """Detecta automaticamente o padrao e tipos das variaveis"""
+        valores_str = padrao.strip().split()
+        valores = []
+        tipos = []
+
+        for val in valores_str:
+            try:
+                valor_int = int(val)
+                if valor_int == 0:
+                    valor_int = 1
+                valores.append(valor_int)
+                tipos.append('int')
+                continue
+            except ValueError:
+                pass
+
+            try:
+                valor_float = float(val)
+                if valor_float == 0.0:
+                    valor_float = 1.0
+                valores.append(valor_float)
+                tipos.append('float')
+                continue
+            except ValueError:
+                pass
+
+            valores.append(val.lower())
+            tipos.append('str')
+
+        return valores, tipos
+
+    def executar_modelo(self, params: List) -> float:
+        """Executa o modelo com cache"""
+        cached_value = CacheGlobal.get(self.comando_modelo, params)
+        if cached_value is not None:
+            self.cache_hits += 1
+            return cached_value
+
+        try:
+            params_str = [str(p) for p in params]
+            resultado = subprocess.run(
+                [self.comando_modelo] + params_str,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            saida = resultado.stdout.strip()
+
+            if ":" in saida:
+                valor = float(saida.split(":")[-1].strip())
+            else:
+                valor = float(saida)
+
+            self.total_execucoes += 1
+            CacheGlobal.set(self.comando_modelo, params, valor)
+
+            # Atualiza melhor resultado
+            melhorou = False
+            if self.modo == 'maximizar':
+                if valor > self.melhor_valor:
+                    melhorou = True
+            else:
+                if valor < self.melhor_valor:
+                    melhorou = True
+
+            if melhorou:
+                self.melhor_valor = valor
+                self.melhor_params = params.copy()
+                tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
+                print(f"    [NOVO {tipo_otimo.upper()}] {valor:.6f} com {params}")
+
+            # Adiciona ao historico
+            self.historico.append((params.copy(), valor))
+
+            # Mantem top 10 solucoes
+            self._atualizar_top_solucoes(params, valor)
+
+            return valor
+
+        except Exception as e:
+            return float('-inf') if self.modo == 'maximizar' else float('inf')
+
+    def _atualizar_top_solucoes(self, params: List, valor: float):
+        """Mantem as top 10 melhores solucoes"""
+        self.melhores_solucoes.append((params.copy(), valor))
+
+        # Ordena e mantem top 10
+        if self.modo == 'maximizar':
+            self.melhores_solucoes.sort(key=lambda x: x[1], reverse=True)
+        else:
+            self.melhores_solucoes.sort(key=lambda x: x[1])
+
+        self.melhores_solucoes = self.melhores_solucoes[:10]
+
+    def _gerar_individuo_aleatorio(self, tipos: List[str], limite_min: float, limite_max: float) -> List:
+        """Gera individuo aleatorio"""
+        import random
+        individuo = []
+        opcoes_str = ['baixo', 'medio', 'alto']
+
+        for tipo in tipos:
+            if tipo == 'int':
+                individuo.append(random.randint(int(limite_min), int(limite_max)))
+            elif tipo == 'float':
+                individuo.append(round(random.uniform(limite_min, limite_max), 6))
+            elif tipo == 'str':
+                individuo.append(random.choice(opcoes_str))
+
+        return individuo
+
+    def _fase1_exploracao_global(self, params_iniciais: List, tipos: List[str],
+                                  limite_min: float, limite_max: float,
+                                  num_particulas: int = 40, num_iteracoes: int = 50):
+        """
+        FASE 1: Exploracao Global com PSO rapido
+        Objetivo: Encontrar regioes promissoras rapidamente
+        """
+        import random
+        print("\n" + "="*70)
+        print("FASE 1: EXPLORACAO GLOBAL (PSO Rapido)")
+        print("="*70)
+        print(f"Particulas: {num_particulas} | Iteracoes: {num_iteracoes}")
+
+        opcoes_str = ['baixo', 'medio', 'alto']
+
+        # Inicializa particulas
+        particulas = []
+        velocidades = []
+
+        for i in range(num_particulas):
+            if i == 0:
+                particulas.append(params_iniciais.copy())
+            else:
+                particulas.append(self._gerar_individuo_aleatorio(tipos, limite_min, limite_max))
+
+            # Velocidade inicial
+            vel = []
+            for tipo in tipos:
+                if tipo == 'int':
+                    vel.append(random.randint(-10, 10))
+                elif tipo == 'float':
+                    vel.append(random.uniform(-5, 5))
+                else:
+                    vel.append(0)
+            velocidades.append(vel)
+
+        # Avalia particulas iniciais
+        fitness = [self.executar_modelo(p) for p in particulas]
+
+        # pBest e gBest
+        pBest = [p.copy() for p in particulas]
+        pBest_fitness = fitness.copy()
+
+        if self.modo == 'maximizar':
+            best_idx = max(range(len(fitness)), key=lambda i: fitness[i])
+        else:
+            best_idx = min(range(len(fitness)), key=lambda i: fitness[i])
+
+        gBest = particulas[best_idx].copy()
+        gBest_fitness = fitness[best_idx]
+
+        # Parametros PSO agressivos
+        w = 0.9  # Alta inercia para explorar
+        c1, c2 = 1.5, 2.0
+
+        # Loop principal
+        for iteracao in range(num_iteracoes):
+            # Reduz inercia ao longo do tempo
+            w = 0.9 - (0.5 * iteracao / num_iteracoes)
+
+            for i in range(num_particulas):
+                # Atualiza velocidade
+                for j in range(len(tipos)):
+                    if tipos[j] in ['int', 'float']:
+                        r1, r2 = random.random(), random.random()
+                        velocidades[i][j] = (w * velocidades[i][j] +
+                                            c1 * r1 * (pBest[i][j] - particulas[i][j]) +
+                                            c2 * r2 * (gBest[j] - particulas[i][j]))
+                        # Limita velocidade
+                        v_max = (limite_max - limite_min) * 0.3
+                        velocidades[i][j] = max(-v_max, min(v_max, velocidades[i][j]))
+
+                # Atualiza posicao
+                for j in range(len(tipos)):
+                    if tipos[j] == 'int':
+                        particulas[i][j] = int(particulas[i][j] + velocidades[i][j])
+                        particulas[i][j] = max(int(limite_min), min(int(limite_max), particulas[i][j]))
+                    elif tipos[j] == 'float':
+                        particulas[i][j] = particulas[i][j] + velocidades[i][j]
+                        particulas[i][j] = round(max(limite_min, min(limite_max, particulas[i][j])), 6)
+                    elif tipos[j] == 'str':
+                        # Muta string com probabilidade
+                        if random.random() < 0.2:
+                            particulas[i][j] = random.choice(opcoes_str)
+
+                # Avalia
+                fitness[i] = self.executar_modelo(particulas[i])
+
+                # Atualiza pBest
+                if self.modo == 'maximizar':
+                    if fitness[i] > pBest_fitness[i]:
+                        pBest[i] = particulas[i].copy()
+                        pBest_fitness[i] = fitness[i]
+                        if fitness[i] > gBest_fitness:
+                            gBest = particulas[i].copy()
+                            gBest_fitness = fitness[i]
+                else:
+                    if fitness[i] < pBest_fitness[i]:
+                        pBest[i] = particulas[i].copy()
+                        pBest_fitness[i] = fitness[i]
+                        if fitness[i] < gBest_fitness:
+                            gBest = particulas[i].copy()
+                            gBest_fitness = fitness[i]
+
+            if (iteracao + 1) % 10 == 0:
+                print(f"  Iter {iteracao+1}/{num_iteracoes}: Melhor = {gBest_fitness:.6f}")
+
+        print(f"\n[FASE 1 CONCLUIDA] Melhor global: {self.melhor_valor:.6f}")
+        print(f"Top solucoes encontradas: {len(self.melhores_solucoes)}")
+
+    def _fase2_intensificacao(self, tipos: List[str], limite_min: float, limite_max: float, max_iter: int = 100):
+        """
+        FASE 2: Intensificacao com Nelder-Mead nas melhores solucoes
+        """
+        print("\n" + "="*70)
+        print("FASE 2: INTENSIFICACAO (Nelder-Mead)")
+        print("="*70)
+
+        # Pega top 5 solucoes para intensificar
+        top_solucoes = self.melhores_solucoes[:5]
+        print(f"Intensificando top {len(top_solucoes)} solucoes...")
+
+        alpha, gamma, rho, sigma = 1.0, 2.0, 0.5, 0.5
+
+        for idx, (ponto_inicial, valor_inicial) in enumerate(top_solucoes):
+            print(f"\n  [Intensificando solucao {idx+1}] Valor inicial: {valor_inicial:.6f}")
+
+            # Cria simplex pequeno ao redor do ponto
+            n = len(ponto_inicial)
+            step = (limite_max - limite_min) * 0.1  # Step pequeno
+
+            simplex = [ponto_inicial.copy()]
+            for i in range(n):
+                vertice = ponto_inicial.copy()
+                if tipos[i] == 'int':
+                    vertice[i] = min(int(limite_max), vertice[i] + max(1, int(step)))
+                elif tipos[i] == 'float':
+                    vertice[i] = min(limite_max, vertice[i] + step)
+                simplex.append(vertice)
+
+            valores = [self.executar_modelo(v) for v in simplex]
+
+            # Loop Nelder-Mead simplificado
+            for iteracao in range(max_iter):
+                # Ordena
+                if self.modo == 'maximizar':
+                    indices = sorted(range(len(valores)), key=lambda i: valores[i], reverse=True)
+                else:
+                    indices = sorted(range(len(valores)), key=lambda i: valores[i])
+
+                simplex = [simplex[i] for i in indices]
+                valores = [valores[i] for i in indices]
+
+                # Verifica convergencia
+                if max(valores) - min(valores) < 1e-6:
+                    break
+
+                # Centroide (exceto pior)
+                centroide = []
+                for j in range(n):
+                    if tipos[j] in ['int', 'float']:
+                        c = sum(simplex[i][j] for i in range(n)) / n
+                        centroide.append(c)
+                    else:
+                        centroide.append(simplex[0][j])
+
+                # Reflexao
+                pior = simplex[-1]
+                refletido = []
+                for j in range(n):
+                    if tipos[j] == 'int':
+                        val = int(centroide[j] + alpha * (centroide[j] - pior[j]))
+                        val = max(int(limite_min), min(int(limite_max), val))
+                        refletido.append(val)
+                    elif tipos[j] == 'float':
+                        val = centroide[j] + alpha * (centroide[j] - pior[j])
+                        val = max(limite_min, min(limite_max, val))
+                        refletido.append(round(val, 6))
+                    else:
+                        refletido.append(pior[j])
+
+                fr = self.executar_modelo(refletido)
+
+                # Decisao simples
+                if self.modo == 'maximizar':
+                    if fr > valores[-1]:
+                        simplex[-1] = refletido
+                        valores[-1] = fr
+                else:
+                    if fr < valores[-1]:
+                        simplex[-1] = refletido
+                        valores[-1] = fr
+
+            print(f"    Melhor apos intensificacao: {self.melhor_valor:.6f}")
+
+        print(f"\n[FASE 2 CONCLUIDA] Melhor global: {self.melhor_valor:.6f}")
+
+    def _fase3_polimento(self, tipos: List[str], limite_min: float, limite_max: float):
+        """
+        FASE 3: Polimento final com Pattern Search refinado
+        """
+        print("\n" + "="*70)
+        print("FASE 3: POLIMENTO FINAL (Pattern Search)")
+        print("="*70)
+
+        if self.melhor_params is None:
+            print("Nenhuma solucao para polir!")
+            return
+
+        params_atual = self.melhor_params.copy()
+        valor_atual = self.melhor_valor
+
+        # Steps decrescentes para refinamento
+        steps = [10, 5, 2, 1]
+
+        for step in steps:
+            print(f"\n  Step = {step}")
+            melhorou = True
+
+            while melhorou:
+                melhorou = False
+
+                for i in range(len(params_atual)):
+                    if tipos[i] == 'str':
+                        # Testa todas opcoes de string
+                        for opcao in ['baixo', 'medio', 'alto']:
+                            if opcao != params_atual[i]:
+                                teste = params_atual.copy()
+                                teste[i] = opcao
+                                valor_teste = self.executar_modelo(teste)
+
+                                if self.modo == 'maximizar':
+                                    if valor_teste > valor_atual:
+                                        params_atual = teste
+                                        valor_atual = valor_teste
+                                        melhorou = True
+                                else:
+                                    if valor_teste < valor_atual:
+                                        params_atual = teste
+                                        valor_atual = valor_teste
+                                        melhorou = True
+
+                    elif tipos[i] in ['int', 'float']:
+                        # Testa +step e -step
+                        for delta in [step, -step]:
+                            teste = params_atual.copy()
+                            if tipos[i] == 'int':
+                                teste[i] = max(int(limite_min), min(int(limite_max), teste[i] + delta))
+                            else:
+                                teste[i] = max(limite_min, min(limite_max, teste[i] + delta))
+
+                            valor_teste = self.executar_modelo(teste)
+
+                            if self.modo == 'maximizar':
+                                if valor_teste > valor_atual:
+                                    params_atual = teste
+                                    valor_atual = valor_teste
+                                    melhorou = True
+                                    break
+                            else:
+                                if valor_teste < valor_atual:
+                                    params_atual = teste
+                                    valor_atual = valor_teste
+                                    melhorou = True
+                                    break
+
+            print(f"    Melhor com step {step}: {self.melhor_valor:.6f}")
+
+        print(f"\n[FASE 3 CONCLUIDA] Melhor final: {self.melhor_valor:.6f}")
+
+    def otimizar(self, params_iniciais: List, tipos: List[str],
+                 limite_min: float = 1, limite_max: float = 100):
+        """
+        Executa o Otimizador Hibrido em 3 fases
+        """
+        print("\n" + "="*70)
+        print("       HYBRID OPTIMIZER - COMBINANDO AS MELHORES ESTRATEGIAS")
+        print("="*70)
+        print(f"Modo: {self.modo.upper()}")
+        print(f"Parametros iniciais: {params_iniciais}")
+        print(f"Tipos: {tipos}")
+        print(f"Limites: [{limite_min}, {limite_max}]")
+        print("\nEstrategias combinadas:")
+        print("  FASE 1: PSO (Exploracao Global)")
+        print("  FASE 2: Nelder-Mead (Intensificacao)")
+        print("  FASE 3: Pattern Search (Polimento)")
+        print("="*70)
+
+        tempo_inicio = time.time()
+
+        # FASE 1: Exploracao Global
+        self._fase1_exploracao_global(params_iniciais, tipos, limite_min, limite_max,
+                                       num_particulas=40, num_iteracoes=60)
+
+        # FASE 2: Intensificacao
+        self._fase2_intensificacao(tipos, limite_min, limite_max, max_iter=80)
+
+        # FASE 3: Polimento
+        self._fase3_polimento(tipos, limite_min, limite_max)
+
+        # Resultado final
+        tempo_total = time.time() - tempo_inicio
+        print("\n" + "="*70)
+        print("OTIMIZACAO HIBRIDA CONCLUIDA!")
+        print("="*70)
+        print(f"Tempo de execucao: {tempo_total:.2f} segundos ({tempo_total/60:.2f} minutos)")
+        print(f"Total de execucoes: {self.total_execucoes}")
+        print(f"Cache hits: {self.cache_hits} (economizou {self.cache_hits} execucoes!)")
+        tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
+        print(f"Valor {tipo_otimo} encontrado: {self.melhor_valor:.6f}")
+        print(f"Parametros otimos: {self.melhor_params}")
+        print("="*70 + "\n")
+
+        return self.melhor_params, self.melhor_valor
+
+    def salvar_relatorio(self, arquivo: str = "resultado_hybrid.txt"):
+        """Salva relatorio da otimizacao"""
+        with open(arquivo, 'w', encoding='utf-8') as f:
+            f.write("RELATORIO DE OTIMIZACAO - HYBRID OPTIMIZER\n")
+            f.write("="*70 + "\n\n")
+            f.write("Estrategias utilizadas:\n")
+            f.write("  - FASE 1: PSO (Exploracao Global)\n")
+            f.write("  - FASE 2: Nelder-Mead (Intensificacao)\n")
+            f.write("  - FASE 3: Pattern Search (Polimento)\n\n")
+            tipo_otimo = "Maximo" if self.modo == 'maximizar' else "Minimo"
+            f.write(f"Valor {tipo_otimo}: {self.melhor_valor:.6f}\n")
+            f.write(f"Parametros Otimos: {self.melhor_params}\n")
+            f.write(f"Total de Execucoes: {self.total_execucoes}\n")
+            f.write(f"Cache Hits: {self.cache_hits}\n\n")
+            f.write("="*70 + "\n")
+            f.write("TOP 10 MELHORES SOLUCOES ENCONTRADAS\n")
+            f.write("="*70 + "\n\n")
+            for i, (params, valor) in enumerate(self.melhores_solucoes, 1):
+                f.write(f"{i}. {params} -> {valor:.6f}\n")
+            f.write("\n" + "="*70 + "\n")
+            f.write("HISTORICO COMPLETO\n")
+            f.write("="*70 + "\n\n")
+            for i, (params, valor) in enumerate(self.historico, 1):
+                f.write(f"{i}. {params} -> {valor:.6f}\n")
+
+        print(f"[OK] Relatorio salvo em: {arquivo}")
+
+
+class NelderMeadSimplex:
+    """Implementacao do Nelder-Mead Simplex Method"""
+
+    def __init__(self, comando_modelo: str, modo: str = 'maximizar'):
+        """
+        Inicializa o Nelder-Mead Simplex
+
+        Args:
+            comando_modelo: Comando do executavel (ex: 'modelo10.exe')
+            modo: 'maximizar' ou 'minimizar' (padrao: 'maximizar')
+        """
+        self.comando_modelo = comando_modelo
+        self.modo = modo.lower()
+        self.melhor_valor = float('-inf') if self.modo == 'maximizar' else float('inf')
+        self.melhor_params = None
+        self.historico = []
+        self.total_execucoes = 0
+        self.cache_hits = 0
+
+    def detectar_padrao(self, padrao: str) -> Tuple[List, List[str]]:
+        """Detecta automaticamente o padrao e tipos das variaveis"""
+        valores_str = padrao.strip().split()
+        valores = []
+        tipos = []
+
+        for val in valores_str:
+            try:
+                valor_int = int(val)
+                if valor_int == 0:
+                    valor_int = 1
+                valores.append(valor_int)
+                tipos.append('int')
+                continue
+            except ValueError:
+                pass
+
+            try:
+                valor_float = float(val)
+                if valor_float == 0.0:
+                    valor_float = 1.0
+                valores.append(valor_float)
+                tipos.append('float')
+                continue
+            except ValueError:
+                pass
+
+            valores.append(val.lower())
+            tipos.append('str')
+
+        return valores, tipos
+
+    def executar_modelo(self, params: List, usar_cache: bool = True) -> float:
+        """Executa o modelo com os parametros dados (COM CACHE)"""
+        # Verifica cache primeiro
+        if usar_cache:
+            cached_value = CacheGlobal.get(self.comando_modelo, params)
+            if cached_value is not None:
+                self.cache_hits += 1
+                return cached_value
+
+        try:
+            params_str = [str(p) for p in params]
+            resultado = subprocess.run(
+                [self.comando_modelo] + params_str,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            saida = resultado.stdout.strip()
+
+            if ":" in saida:
+                valor = float(saida.split(":")[-1].strip())
+            else:
+                valor = float(saida)
+
+            self.total_execucoes += 1
+
+            # Salva no cache
+            if usar_cache:
+                CacheGlobal.set(self.comando_modelo, params, valor)
+
+            # Atualiza melhor resultado global
+            melhorou = False
+            if self.modo == 'maximizar':
+                if valor > self.melhor_valor:
+                    melhorou = True
+            else:
+                if valor < self.melhor_valor:
+                    melhorou = True
+
+            if melhorou:
+                self.melhor_valor = valor
+                self.melhor_params = params.copy()
+                tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
+                print(f"[OK] Novo {tipo_otimo}: {valor:.6f} com {params}")
+
+            self.historico.append((params.copy(), valor))
+            return valor
+
+        except ValueError:
+            return float('-inf') if self.modo == 'maximizar' else float('inf')
+        except Exception as e:
+            print(f"[ERRO] {e}")
+            return float('-inf') if self.modo == 'maximizar' else float('inf')
+
+    def criar_simplex_inicial(self, params_iniciais: List, tipos: List[str],
+                               limite_min: float, limite_max: float, step_size: float = 5.0) -> List[List]:
+        """Cria o simplex inicial (N+1 vertices para N dimensoes)"""
+        n = len(params_iniciais)
+        simplex = [params_iniciais.copy()]  # Primeiro vertice
+
+        # Cria N vertices adicionais
+        for i in range(n):
+            vertice = params_iniciais.copy()
+            tipo = tipos[i]
+
+            if tipo == 'int':
+                delta = max(1, int(step_size))
+                novo_val = vertice[i] + delta
+                vertice[i] = max(int(limite_min), min(int(limite_max), novo_val))
+            elif tipo == 'float':
+                novo_val = vertice[i] + step_size
+                vertice[i] = round(max(limite_min, min(limite_max, novo_val)), 6)
+            elif tipo == 'str':
+                # Para strings, mantem o mesmo valor (Simplex trabalha com numericos)
+                pass
+
+            simplex.append(vertice)
+
+        return simplex
+
+    def centroide(self, pontos: List[List], excluir_idx: int = -1) -> List:
+        """Calcula o centroide excluindo um ponto especifico"""
+        if excluir_idx >= 0:
+            pontos = [p for i, p in enumerate(pontos) if i != excluir_idx]
+
+        n_dim = len(pontos[0])
+        centroide = []
+
+        for j in range(n_dim):
+            valores = [p[j] for p in pontos if isinstance(p[j], (int, float))]
+            if valores:
+                centroide.append(sum(valores) / len(valores))
+            else:
+                # Para strings, usa o valor do primeiro ponto
+                centroide.append(pontos[0][j])
+
+        return centroide
+
+    def refletir(self, pior: List, centroide: List, alpha: float, tipos: List[str],
+                 limite_min: float, limite_max: float) -> List:
+        """Reflexao: xr = c + alpha*(c - xh)"""
+        refletido = []
+        for i in range(len(pior)):
+            if tipos[i] in ['int', 'float']:
+                val = centroide[i] + alpha * (centroide[i] - pior[i])
+                if tipos[i] == 'int':
+                    val = int(max(int(limite_min), min(int(limite_max), val)))
+                else:
+                    val = round(max(limite_min, min(limite_max, val)), 6)
+                refletido.append(val)
+            else:
+                refletido.append(pior[i])
+        return refletido
+
+    def expandir(self, centroide: List, refletido: List, gamma: float, tipos: List[str],
+                 limite_min: float, limite_max: float) -> List:
+        """Expansao: xe = c + gamma*(xr - c)"""
+        expandido = []
+        for i in range(len(refletido)):
+            if tipos[i] in ['int', 'float']:
+                val = centroide[i] + gamma * (refletido[i] - centroide[i])
+                if tipos[i] == 'int':
+                    val = int(max(int(limite_min), min(int(limite_max), val)))
+                else:
+                    val = round(max(limite_min, min(limite_max, val)), 6)
+                expandido.append(val)
+            else:
+                expandido.append(refletido[i])
+        return expandido
+
+    def contrair(self, centroide: List, ponto: List, rho: float, tipos: List[str],
+                 limite_min: float, limite_max: float) -> List:
+        """Contracao: xc = c + rho*(x - c)"""
+        contraido = []
+        for i in range(len(ponto)):
+            if tipos[i] in ['int', 'float']:
+                val = centroide[i] + rho * (ponto[i] - centroide[i])
+                if tipos[i] == 'int':
+                    val = int(max(int(limite_min), min(int(limite_max), val)))
+                else:
+                    val = round(max(limite_min, min(limite_max, val)), 6)
+                contraido.append(val)
+            else:
+                contraido.append(ponto[i])
+        return contraido
+
+    def encolher(self, simplex: List[List], melhor_idx: int, sigma: float, tipos: List[str],
+                 limite_min: float, limite_max: float) -> List[List]:
+        """Encolhimento: xi = xb + sigma*(xi - xb)"""
+        melhor = simplex[melhor_idx]
+        novo_simplex = [melhor]
+
+        for i, ponto in enumerate(simplex):
+            if i == melhor_idx:
+                continue
+
+            novo_ponto = []
+            for j in range(len(ponto)):
+                if tipos[j] in ['int', 'float']:
+                    val = melhor[j] + sigma * (ponto[j] - melhor[j])
+                    if tipos[j] == 'int':
+                        val = int(max(int(limite_min), min(int(limite_max), val)))
+                    else:
+                        val = round(max(limite_min, min(limite_max, val)), 6)
+                    novo_ponto.append(val)
+                else:
+                    novo_ponto.append(ponto[j])
+
+            novo_simplex.append(novo_ponto)
+
+        return novo_simplex
+
+    def otimizar(self, params_iniciais: List, tipos: List[str],
+                 max_iter: int = 500,
+                 step_inicial: float = 30.0,
+                 alpha: float = 1.0,
+                 gamma: float = 2.0,
+                 rho: float = 0.5,
+                 sigma: float = 0.5,
+                 tol: float = 1e-6,
+                 limite_min: float = 1,
+                 limite_max: float = 100):
+        """
+        Executa o Nelder-Mead Simplex - COM MULTI-START PARA STRINGS!
+
+        Args:
+            params_iniciais: Parametros iniciais
+            tipos: Tipos de cada parametro
+            max_iter: Numero maximo de iteracoes
+            step_inicial: Tamanho inicial do simplex (AUMENTADO para 30!)
+            alpha: Coeficiente de reflexao (default 1.0)
+            gamma: Coeficiente de expansao (default 2.0)
+            rho: Coeficiente de contracao (default 0.5)
+            sigma: Coeficiente de encolhimento (default 0.5)
+            tol: Tolerancia para convergencia
+            limite_min: Limite inferior
+            limite_max: Limite superior
+        """
+        print("\n" + "="*70)
+        print("NELDER-MEAD SIMPLEX OPTIMIZER - COM MULTI-START!")
+        print("="*70)
+        print(f"Modo: {self.modo.upper()}")
+        print(f"Tipos detectados: {tipos}")
+        print(f"Numero de variaveis: {len(params_iniciais)}")
+        print(f"Parametros iniciais: {params_iniciais}")
+        print(f"Step inicial: {step_inicial}")
+        print(f"Max iteracoes: {max_iter}")
+        print(f"Coeficientes: alpha={alpha}, gamma={gamma}, rho={rho}, sigma={sigma}")
+        print(f"Limites: [{limite_min}, {limite_max}]")
+
+        # MULTI-START: Se tiver strings, testa todas as opcoes!
+        opcoes_str = ['baixo', 'medio', 'alto']
+        tem_string = 'str' in tipos
+
+        if tem_string:
+            print("\n[MULTI-START] Detectado parametro STRING!")
+            print("              Testarei todas as opcoes: baixo, medio, alto")
+
+        print("="*70 + "\n")
+
+        # INICIA TIMER
+        tempo_inicio = time.time()
+
+        # MULTI-START: Lista de pontos iniciais a testar
+        pontos_iniciais = [params_iniciais.copy()]
+
+        # Se tiver strings, adiciona variantes com todas as opcoes
+        if tem_string:
+            for opcao in opcoes_str:
+                ponto_variante = params_iniciais.copy()
+                for i, tipo in enumerate(tipos):
+                    if tipo == 'str':
+                        ponto_variante[i] = opcao
+                # So adiciona se for diferente do original
+                if ponto_variante != params_iniciais:
+                    pontos_iniciais.append(ponto_variante)
+
+        total_runs = len(pontos_iniciais)
+        run_atual = 0
+
+        # Executa para cada ponto inicial
+        for params_start in pontos_iniciais:
+            run_atual += 1
+            print(f"\n{'='*70}")
+            print(f"MULTI-START RUN {run_atual}/{total_runs}: {params_start}")
+            print(f"{'='*70}")
+
+            # Cria simplex inicial
+            print("Criando simplex inicial...")
+            simplex = self.criar_simplex_inicial(params_start, tipos, limite_min, limite_max, step_inicial)
+
+            # Avalia todos os vertices do simplex
+            valores = [self.executar_modelo(v) for v in simplex]
+
+            iteracao = 0
+            sem_melhoria = 0
+            valor_anterior = self.melhor_valor
+
+            # Loop principal
+            while iteracao < max_iter:
+                iteracao += 1
+
+                # Ordena simplex (melhor -> pior)
+                if self.modo == 'maximizar':
+                    indices_ordenados = sorted(range(len(valores)), key=lambda i: valores[i], reverse=True)
+                else:
+                    indices_ordenados = sorted(range(len(valores)), key=lambda i: valores[i])
+
+                simplex = [simplex[i] for i in indices_ordenados]
+                valores = [valores[i] for i in indices_ordenados]
+
+                melhor_idx = 0
+                pior_idx = len(valores) - 1
+                segundo_pior_idx = len(valores) - 2
+
+                # Verifica convergencia
+                desvio = max(valores) - min(valores)
+                if desvio < tol:
+                    print(f"\n[CONVERGENCIA] Desvio dos valores < {tol}")
+                    break
+
+                if iteracao % 20 == 0:
+                    tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
+                    print(f"Iter {iteracao}: Melhor {tipo_otimo} = {self.melhor_valor:.6f} | Cache: {self.cache_hits} hits")
+
+                    # Verifica se esta preso
+                    if abs(self.melhor_valor - valor_anterior) < tol * 10:
+                        sem_melhoria += 1
+                        if sem_melhoria >= 5:
+                            print(f"\n[PARADA] Sem melhoria significativa por {sem_melhoria * 20} iteracoes")
+                            break
+                    else:
+                        sem_melhoria = 0
+                    valor_anterior = self.melhor_valor
+
+                # Calcula centroide (excluindo o pior)
+                c = self.centroide(simplex, pior_idx)
+
+                # REFLEXAO
+                xr = self.refletir(simplex[pior_idx], c, alpha, tipos, limite_min, limite_max)
+                fr = self.executar_modelo(xr)
+
+                if self.modo == 'maximizar':
+                    # Reflexao e melhor que segundo pior, mas pior que o melhor
+                    if fr > valores[segundo_pior_idx] and fr <= valores[melhor_idx]:
+                        simplex[pior_idx] = xr
+                        valores[pior_idx] = fr
+                        continue
+
+                    # Reflexao e melhor que o melhor atual - tenta EXPANSAO
+                    if fr > valores[melhor_idx]:
+                        xe = self.expandir(c, xr, gamma, tipos, limite_min, limite_max)
+                        fe = self.executar_modelo(xe)
+
+                        if fe > fr:
+                            simplex[pior_idx] = xe
+                            valores[pior_idx] = fe
+                        else:
+                            simplex[pior_idx] = xr
+                            valores[pior_idx] = fr
+                        continue
+
+                    # Reflexao e pior que todos - tenta CONTRACAO
+                    xc = self.contrair(c, simplex[pior_idx], rho, tipos, limite_min, limite_max)
+                    fc = self.executar_modelo(xc)
+
+                    if fc > valores[pior_idx]:
+                        simplex[pior_idx] = xc
+                        valores[pior_idx] = fc
+                        continue
+
+                else:  # minimizar
+                    if fr < valores[segundo_pior_idx] and fr >= valores[melhor_idx]:
+                        simplex[pior_idx] = xr
+                        valores[pior_idx] = fr
+                        continue
+
+                    if fr < valores[melhor_idx]:
+                        xe = self.expandir(c, xr, gamma, tipos, limite_min, limite_max)
+                        fe = self.executar_modelo(xe)
+
+                        if fe < fr:
+                            simplex[pior_idx] = xe
+                            valores[pior_idx] = fe
+                        else:
+                            simplex[pior_idx] = xr
+                            valores[pior_idx] = fr
+                        continue
+
+                    xc = self.contrair(c, simplex[pior_idx], rho, tipos, limite_min, limite_max)
+                    fc = self.executar_modelo(xc)
+
+                    if fc < valores[pior_idx]:
+                        simplex[pior_idx] = xc
+                        valores[pior_idx] = fc
+                        continue
+
+                # Se nenhuma operacao melhorou, ENCOLHE o simplex
+                simplex = self.encolher(simplex, melhor_idx, sigma, tipos, limite_min, limite_max)
+                valores = [self.executar_modelo(v) for v in simplex]
+
+            print(f"[RUN {run_atual}] Melhor encontrado: {self.melhor_valor:.6f} com {self.melhor_params}")
+
+        # Resultado final
+        tempo_total = time.time() - tempo_inicio
+        print("\n" + "="*70)
+        print("OTIMIZACAO CONCLUIDA")
+        print("="*70)
+        print(f"Tempo de execucao: {tempo_total:.2f} segundos ({tempo_total/60:.2f} minutos)")
+        print(f"Total de execucoes: {self.total_execucoes}")
+        print(f"Cache hits: {self.cache_hits} (economizou {self.cache_hits} execucoes!)")
+        print(f"Iteracoes realizadas: {iteracao}")
+        tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
+        print(f"Valor {tipo_otimo} encontrado: {self.melhor_valor:.6f}")
+        print(f"Parametros otimos: {self.melhor_params}")
+        print("="*70 + "\n")
+
+        return self.melhor_params, self.melhor_valor
+
+    def salvar_relatorio(self, arquivo: str = "resultado_nelder_mead_simplex.txt"):
+        """Salva relatorio da otimizacao"""
+        with open(arquivo, 'w', encoding='utf-8') as f:
+            f.write("RELATORIO DE OTIMIZACAO - NELDER-MEAD SIMPLEX\n")
+            f.write("="*70 + "\n\n")
+            tipo_otimo = "Maximo" if self.modo == 'maximizar' else "Minimo"
+            f.write(f"Valor {tipo_otimo}: {self.melhor_valor:.6f}\n")
+            f.write(f"Parametros Otimos: {self.melhor_params}\n")
+            f.write(f"Total de Execucoes: {self.total_execucoes}\n")
+            f.write(f"Cache Hits: {self.cache_hits}\n\n")
+            f.write("="*70 + "\n")
+            f.write("HISTORICO COMPLETO\n")
+            f.write("="*70 + "\n\n")
+            for i, (params, valor) in enumerate(self.historico, 1):
+                f.write(f"{i}. {params} -> {valor:.6f}\n")
+
+        print(f"[OK] Relatorio salvo em: {arquivo}")
+
+
 def mostrar_menu():
     """Mostra o menu principal"""
     print("\n" + "="*70)
     print("        SISTEMA DE OTIMIZACAO AUTOMATICA")
     print("="*70)
     print("\nMETODOS DE OTIMIZACAO DISPONIVEIS:\n")
-    print("  [1] Pattern Search (Busca por Padroes)")
-    print("  [2] Genetic Algorithm (Algoritmo Genetico)")
-    print("  [3] Particle Swarm (Otimizacao por Enxame de Particulas)")
-    print("  [4] Simulated Annealing (Em breve...)")
+    print("  [1] Pattern Search (Busca por Padrões)")
+    print("  [2] Genetic Algorithm (Algoritmo Genético)")
+    print("  [3] Particle Swarm (Otimização por Enxame de Partículas)")
+    print("  [4] Nelder-Mead Simplex (Método Simplex de Nelder-Mead)")
+    print("  [5] HYBRID OPTIMIZER (Combina PSO + Nelder-Mead + Pattern Search)")
     print("\n  [0] Sair")
-    print("\n" + "="*70)
+    print(f"\n  Cache Global: {CacheGlobal.size()} resultados salvos")
+    print("="*70)
 
 
 def executar_pattern_search():
@@ -1408,6 +2430,240 @@ def executar_particle_swarm():
         return False
 
 
+def executar_nelder_mead_simplex():
+    """Executa o Nelder-Mead Simplex com configuracao automatica"""
+
+    print("\n" + "="*70)
+    print("CONFIGURACAO DO NELDER-MEAD SIMPLEX")
+    print("="*70 + "\n")
+
+    # 1. Entrada completa: comando + padrao
+    print("1. Digite o COMANDO + PADRAO (tudo em uma linha):")
+    print("   Exemplos:")
+    print("   - modelo10.exe baixo 1 1 1 1 1 1 1 1 1")
+    print("   - ./modelo10.exe baixo 1 1.5 true 1")
+    print("   - meu_modelo.exe 1 1 1 1 1 1 1 1")
+
+    entrada_completa = input("\n   Digite: ").strip()
+
+    if not entrada_completa:
+        entrada_completa = "modelo10.exe baixo 1 1 1 1 1 1 1 1 1"
+        print(f"   [PADRAO] Usando: {entrada_completa}")
+
+    partes = entrada_completa.split()
+    if len(partes) < 2:
+        print("\n   [ERRO] Formato invalido! Use: comando param1 param2 ...")
+        return False
+
+    comando_modelo = partes[0]
+    padrao = " ".join(partes[1:])
+
+    print(f"\n   [OK] Comando detectado: {comando_modelo}")
+    print(f"   [OK] Padrao detectado: {padrao}")
+
+    # Criar otimizador temporario para detectar padrao
+    optimizer_temp = NelderMeadSimplex(comando_modelo)
+    params_iniciais, tipos = optimizer_temp.detectar_padrao(padrao)
+
+    print(f"\n   [OK] Analise do padrao:")
+    print(f"   - Quantidade de variaveis: {len(params_iniciais)}")
+    print(f"   - Tipos: {tipos}")
+    print(f"   - Valores iniciais: {params_iniciais}")
+
+    # 2. Escolher modo: maximizar ou minimizar
+    print("\n2. Modo de otimizacao:")
+    print("   [1] Maximizar (buscar maior valor)")
+    print("   [2] Minimizar (buscar menor valor)")
+    modo_input = input("   Escolha [1]: ").strip()
+    modo = 'minimizar' if modo_input == '2' else 'maximizar'
+    print(f"   [OK] Modo selecionado: {modo.upper()}")
+
+    # Criar otimizador com o modo escolhido
+    optimizer = NelderMeadSimplex(comando_modelo, modo=modo)
+
+    # 3. Configuracoes de otimizacao
+    print("\n3. Configuracoes de otimizacao (pressione ENTER para usar padrao):")
+
+    try:
+        max_iter_input = input("   Maximo de iteracoes [500]: ").strip()
+        max_iter = int(max_iter_input) if max_iter_input else 500
+
+        step_input = input("   Step inicial do simplex [10.0]: ").strip()
+        step_inicial = float(step_input) if step_input else 10.0
+
+        limite_min_input = input("   Limite minimo [1]: ").strip()
+        limite_min = float(limite_min_input) if limite_min_input else 1
+
+        limite_max_input = input("   Limite maximo [100]: ").strip()
+        limite_max = float(limite_max_input) if limite_max_input else 100
+
+    except ValueError:
+        print("   [AVISO] Valor invalido. Usando configuracoes padrao.")
+        max_iter = 500
+        step_inicial = 10.0
+        limite_min = 1
+        limite_max = 100
+
+    # 4. Executa otimizacao
+    print("\n" + "="*70)
+    print("INICIANDO OTIMIZACAO AUTOMATICA...")
+    print("="*70)
+    objetivo = "MAIOR VALOR" if modo == 'maximizar' else "MENOR VALOR"
+    print(f"\nO algoritmo tentara encontrar o {objetivo} automaticamente.")
+    print("Pressione Ctrl+C para interromper a qualquer momento.\n")
+
+    try:
+        melhor_params, melhor_valor = optimizer.otimizar(
+            params_iniciais=params_iniciais,
+            tipos=tipos,
+            max_iter=max_iter,
+            step_inicial=step_inicial,
+            limite_min=limite_min,
+            limite_max=limite_max
+        )
+
+        optimizer.salvar_relatorio()
+
+        print("\n" + "-"*70)
+        print("COMANDO PARA REPRODUZIR O MELHOR RESULTADO:")
+        params_str = " ".join(str(p) for p in melhor_params)
+        print(f"\n{comando_modelo} {params_str}")
+        print("\n" + "-"*70 + "\n")
+
+        return True
+
+    except KeyboardInterrupt:
+        print("\n\n[AVISO] Otimizacao interrompida pelo usuario.")
+        if optimizer.melhor_params:
+            print(f"\nMelhor resultado ate agora:")
+            print(f"Valor: {optimizer.melhor_valor:.6f}")
+            print(f"Parametros: {optimizer.melhor_params}")
+        return False
+
+    except Exception as e:
+        print(f"\n[ERRO] Erro durante otimizacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def executar_hybrid():
+    """Executa o Hybrid Optimizer com configuracao automatica"""
+
+    print("\n" + "="*70)
+    print("CONFIGURACAO DO HYBRID OPTIMIZER")
+    print("="*70 + "\n")
+
+    print(">>> HYBRID OPTIMIZER <<<")
+    print("Combina as melhores estrategias:")
+    print("  FASE 1: PSO (Exploracao Global)")
+    print("  FASE 2: Nelder-Mead (Intensificacao)")
+    print("  FASE 3: Pattern Search (Polimento)")
+    print()
+
+    # 1. Entrada completa: comando + padrao
+    print("1. Digite o COMANDO + PADRAO (tudo em uma linha):")
+    print("   Exemplos:")
+    print("   - simulado.exe 80 80 80 80 80")
+    print("   - modelo10.exe baixo 1 1 1 1 1 1 1 1 1")
+    print()
+
+    entrada = input(">>> ").strip()
+
+    if not entrada:
+        print("[ERRO] Entrada vazia!")
+        return False
+
+    # Separa comando do padrao
+    partes = entrada.split()
+    if len(partes) < 2:
+        print("[ERRO] Informe o comando E o padrao!")
+        return False
+
+    comando_modelo = partes[0]
+    padrao_inicial = " ".join(partes[1:])
+
+    # Cria o optimizer
+    optimizer = HybridOptimizer(comando_modelo)
+
+    # Detecta tipos
+    params_iniciais, tipos = optimizer.detectar_padrao(padrao_inicial)
+
+    print(f"\n[OK] Comando: {comando_modelo}")
+    print(f"[OK] Padrao detectado: {params_iniciais}")
+    print(f"[OK] Tipos: {tipos}")
+
+    # 2. Modo de otimizacao
+    print("\n2. Modo de otimizacao:")
+    print("   [1] MAXIMIZAR (encontrar maior valor) - PADRAO")
+    print("   [2] MINIMIZAR (encontrar menor valor)")
+    modo_input = input("   Escolha [1]: ").strip()
+
+    if modo_input == '2':
+        modo = 'minimizar'
+        optimizer = HybridOptimizer(comando_modelo, modo='minimizar')
+        params_iniciais, tipos = optimizer.detectar_padrao(padrao_inicial)
+    else:
+        modo = 'maximizar'
+
+    print(f"   Modo selecionado: {modo.upper()}")
+
+    # 3. Configuracoes (usa defaults agressivos)
+    print("\n3. Limites dos parametros:")
+
+    try:
+        limite_min_input = input("   Limite minimo [1]: ").strip()
+        limite_min = float(limite_min_input) if limite_min_input else 1
+
+        limite_max_input = input("   Limite maximo [100]: ").strip()
+        limite_max = float(limite_max_input) if limite_max_input else 100
+
+    except ValueError:
+        print("   [AVISO] Valor invalido. Usando limites padrao [1, 100].")
+        limite_min = 1
+        limite_max = 100
+
+    # 4. Executa otimizacao
+    print("\n" + "="*70)
+    print("INICIANDO OTIMIZACAO HIBRIDA...")
+    print("="*70)
+    objetivo = "MAIOR VALOR" if modo == 'maximizar' else "MENOR VALOR"
+    print(f"\nO algoritmo tentara encontrar o {objetivo} automaticamente.")
+    print("Pressione Ctrl+C para interromper a qualquer momento.\n")
+
+    try:
+        melhor_params, melhor_valor = optimizer.otimizar(
+            params_iniciais=params_iniciais,
+            tipos=tipos,
+            limite_min=limite_min,
+            limite_max=limite_max
+        )
+
+        optimizer.salvar_relatorio()
+
+        print("\n" + "-"*70)
+        print("COMANDO PARA REPRODUZIR O MELHOR RESULTADO:")
+        params_str = " ".join(str(p) for p in melhor_params)
+        print(f"\n{comando_modelo} {params_str}")
+        print("\n" + "-"*70 + "\n")
+
+        return True
+
+    except KeyboardInterrupt:
+        print("\n\n[AVISO] Otimizacao interrompida pelo usuario.")
+        if optimizer.melhor_params:
+            print(f"\nMelhor resultado ate agora:")
+            print(f"Valor: {optimizer.melhor_valor:.6f}")
+            print(f"Parametros: {optimizer.melhor_params}")
+        return False
+
+    except Exception as e:
+        print(f"\n[ERRO] Erro durante otimizacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main():
     """Funcao principal"""
 
@@ -1434,12 +2690,15 @@ def main():
                 input("\nPressione ENTER para voltar ao menu...")
 
             elif escolha == '4':
-                print("\n[AVISO] Este metodo ainda nao foi implementado.")
-                print("        Em breve estara disponivel!")
+                executar_nelder_mead_simplex()
+                input("\nPressione ENTER para voltar ao menu...")
+
+            elif escolha == '5':
+                executar_hybrid()
                 input("\nPressione ENTER para voltar ao menu...")
 
             else:
-                print("\n[ERRO] Opcao invalida! Escolha entre 0-4.")
+                print("\n[ERRO] Opcao invalida! Escolha entre 0-5.")
                 input("\nPressione ENTER para tentar novamente...")
 
         except KeyboardInterrupt:
