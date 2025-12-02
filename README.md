@@ -1,7 +1,18 @@
-# trabalho-final-po
-Trabalho final da faculdade, modelo para a matéria de pesquisa operacional.
+## 🔧 **Trabalho Final – Pesquisa Operacional**
 
-Para rodar use o comando ```python main.py```` apos isso ele pede para você falar qua modelo quer usar, informe de 1 a 5. Depois insira o modelo na mesma pasta do repositorio, fazendo isso você já pode informar o padrão então insira o nome do executave, número se tiver padrão númerico, adicione ponto caso seja 
+Para executar o projeto, basta rodar:
 
-Repositorio do pprojeto:
-https://github.com/esdrasbsbmorais/trabalho-final-po.git
+```bash
+python main.py
+```
+
+O programa pedirá para você escolher **qual modelo de otimização** deseja usar (1 a 5).
+Depois, coloque o **executável do modelo** na mesma pasta do repositório e informe o **padrão de entrada**, incluindo:
+
+* Nome do executável
+* Parâmetros iniciais (números, textos como “baixo/médio/alto” ou valores com ponto)
+
+Após isso, o sistema inicia a otimização automaticamente.
+
+Repositório do projeto:
+[https://github.com/esdrasbsbmorais/trabalho-final-po.git](https://github.com/esdrasbsbmorais/trabalho-final-po.git)
