@@ -3,17 +3,15 @@
 """
 Sistema de Otimizacao Automatica - Deteccao de Tipos
 Autor: Sistema de Otimizacao Inteligente
-VERSAO TURBINADA: Cache + Paralelismo + Multi-Start
 """
 
 import subprocess
 import sys
 import time
 from typing import List, Union, Tuple, Dict
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-import multiprocessing
 import hashlib
 import json
+import datetime
 
 
 class PatternSearch:
@@ -130,7 +128,7 @@ class PatternSearch:
                 self.melhor_valor = valor
                 self.melhor_params = params.copy()
                 tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
-                print(f"[OK] Novo {tipo_otimo}: {valor:.6f} com {params}")
+                print(f"Novo {tipo_otimo}: {valor:.6f} com {params}")
 
             # Salva no historico
             self.historico.append((params.copy(), valor))
@@ -277,7 +275,7 @@ class PatternSearch:
         # Loop principal
         while iteracao < max_iter and step_size >= step_minimo:
             iteracao += 1
-            print(f"\n--- Iteracao {iteracao} | Step: {step_size} ---")
+            # print(f"\n--- Iteracao {iteracao} | Step: {step_size} ---")  # Comentado para economizar tempo
 
             # Gera vizinhos
             vizinhos = self.gerar_vizinhos(params_atual, tipos, step_size, limite_min, limite_max)
@@ -375,7 +373,7 @@ class PatternSearch:
             for i, (params, valor) in enumerate(self.historico, 1):
                 f.write(f"{i}. {params} -> {valor:.6f}\n")
 
-        print(f"[OK] Relatorio salvo em: {arquivo}")
+        print(f"Relatorio salvo em: {arquivo}")
 
 
 class GeneticAlgorithm:
@@ -473,7 +471,7 @@ class GeneticAlgorithm:
                 self.melhor_valor = valor
                 self.melhor_params = params.copy()
                 tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
-                print(f"[OK] Novo {tipo_otimo}: {valor:.6f} com {params}")
+                print(f"Novo {tipo_otimo}: {valor:.6f} com {params}")
 
             self.historico.append((params.copy(), valor))
             return valor
@@ -618,7 +616,7 @@ class GeneticAlgorithm:
 
         # Loop de evolucao
         for geracao in range(num_geracoes):
-            print(f"\n--- Geracao {geracao + 1}/{num_geracoes} ---")
+            # print(f"\n--- Geracao {geracao + 1}/{num_geracoes} ---")  # Comentado para economizar tempo
 
             # Avalia fitness de toda a populacao
             fitness = [self.executar_modelo(ind) for ind in populacao]
@@ -629,7 +627,7 @@ class GeneticAlgorithm:
             else:
                 melhor_idx = min(range(len(fitness)), key=lambda i: fitness[i])
 
-            print(f"> Melhor da geracao: {fitness[melhor_idx]:.6f}")
+            # print(f"> Melhor da geracao: {fitness[melhor_idx]:.6f}")  # Comentado para economizar tempo
 
             # Nova populacao
             nova_populacao = []
@@ -691,7 +689,7 @@ class GeneticAlgorithm:
             for i, (params, valor) in enumerate(self.historico, 1):
                 f.write(f"{i}. {params} -> {valor:.6f}\n")
 
-        print(f"[OK] Relatorio salvo em: {arquivo}")
+        print(f"Relatorio salvo em: {arquivo}")
 
 
 class ParticleSwarm:
@@ -786,7 +784,7 @@ class ParticleSwarm:
                 self.melhor_valor = valor
                 self.melhor_params = params.copy()
                 tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
-                print(f"[OK] Novo {tipo_otimo}: {valor:.6f} com {params}")
+                print(f"Novo {tipo_otimo}: {valor:.6f} com {params}")
 
             self.historico.append((params.copy(), valor))
             return valor
@@ -985,7 +983,7 @@ class ParticleSwarm:
 
         # Loop principal
         for iteracao in range(num_iteracoes):
-            print(f"\n--- Iteracao {iteracao + 1}/{num_iteracoes} ---")
+            # print(f"\n--- Iteracao {iteracao + 1}/{num_iteracoes} ---")  # Comentado para economizar tempo
 
             for i in range(num_particulas):
                 # Atualiza velocidade
@@ -1029,7 +1027,7 @@ class ParticleSwarm:
                         gBest = particulas[i].copy()
                         gBest_fitness = fitness[i]
 
-            print(f"> Melhor global: {gBest_fitness:.6f}")
+            # print(f"> Melhor global: {gBest_fitness:.6f}")  # Comentado para economizar tempo
 
         # Resultado final
         tempo_total = time.time() - tempo_inicio
@@ -1063,7 +1061,7 @@ class ParticleSwarm:
             for i, (params, valor) in enumerate(self.historico, 1):
                 f.write(f"{i}. {params} -> {valor:.6f}\n")
 
-        print(f"[OK] Relatorio salvo em: {arquivo}")
+        print(f"Relatorio salvo em: {arquivo}")
 
 
 class CacheGlobal:
@@ -1117,6 +1115,7 @@ class HybridOptimizer:
         self.total_execucoes = 0
         self.cache_hits = 0
         self.melhores_solucoes = []  # Top N solucoes encontradas
+        self.tempo_total = 0  # Tempo total de execucao
 
     def detectar_padrao(self, padrao: str) -> Tuple[List, List[str]]:
         """Detecta automaticamente o padrao e tipos das variaveis"""
@@ -1188,7 +1187,7 @@ class HybridOptimizer:
                 self.melhor_valor = valor
                 self.melhor_params = params.copy()
                 tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
-                print(f"    [NOVO {tipo_otimo.upper()}] {valor:.6f} com {params}")
+                print(f"Novo {tipo_otimo.upper()} {valor:.6f} com {params}")
 
             # Adiciona ao historico
             self.historico.append((params.copy(), valor))
@@ -1530,11 +1529,11 @@ class HybridOptimizer:
         self._fase3_polimento(tipos, limite_min, limite_max)
 
         # Resultado final
-        tempo_total = time.time() - tempo_inicio
+        self.tempo_total = time.time() - tempo_inicio
         print("\n" + "="*70)
         print("OTIMIZACAO HIBRIDA CONCLUIDA!")
         print("="*70)
-        print(f"Tempo de execucao: {tempo_total:.2f} segundos ({tempo_total/60:.2f} minutos)")
+        print(f"Tempo de execucao: {self.tempo_total:.2f} segundos ({self.tempo_total/60:.2f} minutos)")
         print(f"Total de execucoes: {self.total_execucoes}")
         print(f"Cache hits: {self.cache_hits} (economizou {self.cache_hits} execucoes!)")
         tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
@@ -1545,7 +1544,7 @@ class HybridOptimizer:
         return self.melhor_params, self.melhor_valor
 
     def salvar_relatorio(self, arquivo: str = "resultado_hybrid.txt"):
-        """Salva relatorio da otimizacao"""
+        """Salva relatorio da otimizacao em TXT e JSON"""
         with open(arquivo, 'w', encoding='utf-8') as f:
             f.write("RELATORIO DE OTIMIZACAO - HYBRID OPTIMIZER\n")
             f.write("="*70 + "\n\n")
@@ -1569,7 +1568,28 @@ class HybridOptimizer:
             for i, (params, valor) in enumerate(self.historico, 1):
                 f.write(f"{i}. {params} -> {valor:.6f}\n")
 
-        print(f"[OK] Relatorio salvo em: {arquivo}")
+        print(f"Relatorio salvo em: {arquivo}")
+
+        # Salva JSON
+        arquivo_json = arquivo.replace('.txt', '.json')
+        resultado_json = {
+            "tecnica": "Hybrid Optimizer",
+            "estrategias": ["FASE 1: PSO (Exploracao Global)", "FASE 2: Nelder-Mead (Intensificacao)", "FASE 3: Pattern Search (Polimento)"],
+            "data_execucao": datetime.datetime.now().isoformat(),
+            "tempo_execucao_segundos": self.tempo_total,
+            "tempo_execucao_minutos": self.tempo_total / 60,
+            "modo": self.modo,
+            "melhor_valor": self.melhor_valor,
+            "parametros_otimos": self.melhor_params,
+            "total_execucoes": self.total_execucoes,
+            "cache_hits": self.cache_hits,
+            "total_tentativas": self.total_execucoes + self.cache_hits,
+            "melhores_solucoes": [[params, valor] for params, valor in self.melhores_solucoes],
+            "historico_completo": [[params, valor] for params, valor in self.historico]
+        }
+        with open(arquivo_json, 'w', encoding='utf-8') as f:
+            json.dump(resultado_json, f, indent=2, ensure_ascii=False)
+        print(f"Relatorio JSON salvo em: {arquivo_json}")
 
 
 class NelderMeadSimplex:
@@ -1666,7 +1686,7 @@ class NelderMeadSimplex:
                 self.melhor_valor = valor
                 self.melhor_params = params.copy()
                 tipo_otimo = "maximo" if self.modo == 'maximizar' else "minimo"
-                print(f"[OK] Novo {tipo_otimo}: {valor:.6f} com {params}")
+                print(f"Novo {tipo_otimo}: {valor:.6f} com {params}")
 
             self.historico.append((params.copy(), valor))
             return valor
@@ -2018,7 +2038,7 @@ class NelderMeadSimplex:
             for i, (params, valor) in enumerate(self.historico, 1):
                 f.write(f"{i}. {params} -> {valor:.6f}\n")
 
-        print(f"[OK] Relatorio salvo em: {arquivo}")
+        print(f"Relatorio salvo em: {arquivo}")
 
 
 def mostrar_menu():
@@ -2073,8 +2093,8 @@ def executar_pattern_search():
     comando_modelo = partes[0]
     padrao = " ".join(partes[1:])
 
-    print(f"\n   [OK] Comando detectado: {comando_modelo}")
-    print(f"   [OK] Padrao detectado: {padrao}")
+    print(f"\n   Comando detectado: {comando_modelo}")
+    print(f"   Padrao detectado: {padrao}")
 
     # Criar otimizador temporario para detectar padrao
     optimizer_temp = PatternSearch(comando_modelo)
@@ -2082,7 +2102,7 @@ def executar_pattern_search():
     # Detectar padrao
     params_iniciais, tipos = optimizer_temp.detectar_padrao(padrao)
 
-    print(f"\n   [OK] Analise do padrao:")
+    print(f"\n   Analise do padrao:")
     print(f"   - Quantidade de variaveis: {len(params_iniciais)}")
     print(f"   - Tipos: {tipos}")
     print(f"   - Valores iniciais: {params_iniciais}")
@@ -2093,7 +2113,7 @@ def executar_pattern_search():
     print("   [2] Minimizar (buscar menor valor)")
     modo_input = input("   Escolha [1]: ").strip()
     modo = 'minimizar' if modo_input == '2' else 'maximizar'
-    print(f"   [OK] Modo selecionado: {modo.upper()}")
+    print(f"   Modo selecionado: {modo.upper()}")
 
     # Criar otimizador com o modo escolhido
     optimizer = PatternSearch(comando_modelo, modo=modo)
@@ -2199,14 +2219,14 @@ def executar_genetic_algorithm():
     comando_modelo = partes[0]
     padrao = " ".join(partes[1:])
 
-    print(f"\n   [OK] Comando detectado: {comando_modelo}")
-    print(f"   [OK] Padrao detectado: {padrao}")
+    print(f"\n   Comando detectado: {comando_modelo}")
+    print(f"   Padrao detectado: {padrao}")
 
     # Criar otimizador temporario para detectar padrao
     optimizer_temp = GeneticAlgorithm(comando_modelo)
     params_iniciais, tipos = optimizer_temp.detectar_padrao(padrao)
 
-    print(f"\n   [OK] Analise do padrao:")
+    print(f"\n   Analise do padrao:")
     print(f"   - Quantidade de variaveis: {len(params_iniciais)}")
     print(f"   - Tipos: {tipos}")
     print(f"   - Valores iniciais: {params_iniciais}")
@@ -2217,7 +2237,7 @@ def executar_genetic_algorithm():
     print("   [2] Minimizar (buscar menor valor)")
     modo_input = input("   Escolha [1]: ").strip()
     modo = 'minimizar' if modo_input == '2' else 'maximizar'
-    print(f"   [OK] Modo selecionado: {modo.upper()}")
+    print(f"   Modo selecionado: {modo.upper()}")
 
     # Criar otimizador com o modo escolhido
     optimizer = GeneticAlgorithm(comando_modelo, modo=modo)
@@ -2326,14 +2346,14 @@ def executar_particle_swarm():
     comando_modelo = partes[0]
     padrao = " ".join(partes[1:])
 
-    print(f"\n   [OK] Comando detectado: {comando_modelo}")
-    print(f"   [OK] Padrao detectado: {padrao}")
+    print(f"\n   Comando detectado: {comando_modelo}")
+    print(f"   Padrao detectado: {padrao}")
 
     # Criar otimizador temporario para detectar padrao
     optimizer_temp = ParticleSwarm(comando_modelo)
     params_iniciais, tipos = optimizer_temp.detectar_padrao(padrao)
 
-    print(f"\n   [OK] Analise do padrao:")
+    print(f"\n   Analise do padrao:")
     print(f"   - Quantidade de variaveis: {len(params_iniciais)}")
     print(f"   - Tipos: {tipos}")
     print(f"   - Valores iniciais: {params_iniciais}")
@@ -2344,7 +2364,7 @@ def executar_particle_swarm():
     print("   [2] Minimizar (buscar menor valor)")
     modo_input = input("   Escolha [1]: ").strip()
     modo = 'minimizar' if modo_input == '2' else 'maximizar'
-    print(f"   [OK] Modo selecionado: {modo.upper()}")
+    print(f"   Modo selecionado: {modo.upper()}")
 
     # Criar otimizador com o modo escolhido
     optimizer = ParticleSwarm(comando_modelo, modo=modo)
@@ -2458,14 +2478,14 @@ def executar_nelder_mead_simplex():
     comando_modelo = partes[0]
     padrao = " ".join(partes[1:])
 
-    print(f"\n   [OK] Comando detectado: {comando_modelo}")
-    print(f"   [OK] Padrao detectado: {padrao}")
+    print(f"\n   Comando detectado: {comando_modelo}")
+    print(f"   Padrao detectado: {padrao}")
 
     # Criar otimizador temporario para detectar padrao
     optimizer_temp = NelderMeadSimplex(comando_modelo)
     params_iniciais, tipos = optimizer_temp.detectar_padrao(padrao)
 
-    print(f"\n   [OK] Analise do padrao:")
+    print(f"\n   Analise do padrao:")
     print(f"   - Quantidade de variaveis: {len(params_iniciais)}")
     print(f"   - Tipos: {tipos}")
     print(f"   - Valores iniciais: {params_iniciais}")
@@ -2476,7 +2496,7 @@ def executar_nelder_mead_simplex():
     print("   [2] Minimizar (buscar menor valor)")
     modo_input = input("   Escolha [1]: ").strip()
     modo = 'minimizar' if modo_input == '2' else 'maximizar'
-    print(f"   [OK] Modo selecionado: {modo.upper()}")
+    print(f"   Modo selecionado: {modo.upper()}")
 
     # Criar otimizador com o modo escolhido
     optimizer = NelderMeadSimplex(comando_modelo, modo=modo)
@@ -2589,9 +2609,9 @@ def executar_hybrid():
     # Detecta tipos
     params_iniciais, tipos = optimizer.detectar_padrao(padrao_inicial)
 
-    print(f"\n[OK] Comando: {comando_modelo}")
-    print(f"[OK] Padrao detectado: {params_iniciais}")
-    print(f"[OK] Tipos: {tipos}")
+    print(f"\nComando: {comando_modelo}")
+    print(f"Padrao detectado: {params_iniciais}")
+    print(f"Tipos: {tipos}")
 
     # 2. Modo de otimizacao
     print("\n2. Modo de otimizacao:")
@@ -2674,7 +2694,7 @@ def main():
             escolha = input("\nEscolha uma opcao: ").strip()
 
             if escolha == '0':
-                print("\n[OK] Encerrando sistema. Ate logo!")
+                print("\nEncerrando sistema. Ate logo!")
                 sys.exit(0)
 
             elif escolha == '1':
@@ -2702,7 +2722,7 @@ def main():
                 input("\nPressione ENTER para tentar novamente...")
 
         except KeyboardInterrupt:
-            print("\n\n[OK] Encerrando sistema. Ate logo!")
+            print("\n\nEncerrando sistema. Ate logo!")
             sys.exit(0)
 
         except Exception as e:
